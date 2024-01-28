@@ -1,4 +1,5 @@
 const dgram = require("node:dgram");
+const fs = require("fs");
 const server = dgram.createSocket("udp4");
 
 const { lights } = require("./config.js");
@@ -16,7 +17,7 @@ const max_brightness = 0.8;
 
 if (!TOKEN) {
   throw new Error(
-    "Provide the Home Assistant Long Lived Token as a HA_TOKEN environment variable. Go to /profile in Home Assistant and scroll down.",
+    "Provide the Home Assistant Long Lived Token as a HA_TOKEN environment variable. Go to /profile in Home Assistant and scroll down."
   );
 }
 
