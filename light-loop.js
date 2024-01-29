@@ -11,22 +11,23 @@ async function send_color(
   duration = 0.18,
   debug = false
 ) {
-  const brightness = (color[0] + color[1] + color[2]) / 3 / 255;
+  const brightness = color[0] + color[1] + color[2];
   if (debug) {
     console.log({
       light_data,
-      sum: color[0] + color[1] + color[2],
       brightness,
     });
   }
-  let body = { entity_id: `light.${light_data.id}`, transition: 0.18 };
+  let body = {
+    entity_id: `light.${light_data.id}`,
+    transition: duration,
+    brightness: Math.floor(brightness * max_brightness),
+  };
 
   if (light_data.type == "rgb") {
     body.rgb_color = color;
-    body.brightness = Math.floor(Math.max(...color) * max_brightness);
   } else {
     // body.brightness = Math.max(1, Math.round(255 * brightness)); // 0 seems to turn it off and make it slower to react
-    body.brightness = Math.floor(Math.max(...color) * max_brightness);
   }
 
   if (debug) {
