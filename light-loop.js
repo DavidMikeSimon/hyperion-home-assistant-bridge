@@ -1,4 +1,9 @@
-const { HA_URL, TOKEN, TRANSITION_DURATION_DIVIDER } = require("./env.js");
+const {
+  HA_URL,
+  TOKEN,
+  TRANSITION_DURATION_DIVIDER,
+  AUTO_TURN_OFF,
+} = require("./env.js");
 
 const { sleep } = require("./util.js");
 const latest_color = require("./latest_color.js");
@@ -48,15 +53,36 @@ async function send_color(
   });
 }
 
+async function turn_off_light(light_data, debug = false) {
+  let body = {
+    entity_id: `light.${light_data.id}`,
+  };
+
+  return fetch(`${HA_URL}/api/services/light/turn_off`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: JSON.stringify(body),
+  }).then(async (response) => {
+    if (debug) {
+      console.log(await response.text());
+    }
+  });
+}
+
 module.exports = async function light_loop(light_index, max_brightness, debug) {
   light_index = parseInt(light_index);
   let duration = 0.18; // 180ms - the default for start, will be adjusted later based on how long did the http request take
   let last_color = [0, 0, 0];
+  let active = false;
+
   while (true) {
-    last_time = Date.now();
     const from = 3 * light_index;
     const to = 3 * (light_index + 1);
     const current_color = latest_color.get().slice(from, to);
+    const start = Date.now();
     let is_changed = false;
     for (i in last_color) {
       if (last_color[i] != current_color[i]) {
@@ -65,10 +91,10 @@ module.exports = async function light_loop(light_index, max_brightness, debug) {
       }
     }
     if (is_changed) {
+      active = true;
       if (debug) {
         console.time(`light ${light_index} http request took`);
       }
-      const before = Date.now();
       await send_color(
         lights[light_index],
         current_color,
@@ -76,13 +102,24 @@ module.exports = async function light_loop(light_index, max_brightness, debug) {
         duration,
         debug
       );
-      const after = Date.now();
-      duration = (after - before) / 1000 / TRANSITION_DURATION_DIVIDER;
+      duration = (Date.now() - start) / 1000 / TRANSITION_DURATION_DIVIDER;
       if (debug) {
         console.timeEnd(`light ${light_index} http request took`);
       }
       last_color = current_color;
     } else {
+      if (
+        AUTO_TURN_OFF &&
+        active &&
+        start - latest_color.get_last_update() > 1000
+      ) {
+        if (debug) {
+          console.log("Turning off light");
+        }
+        turn_off_light(lights[light_index], debug);
+        active = false;
+      }
+
       await sleep(10);
     }
   }
